@@ -79,89 +79,55 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         firebaseAvailable.value = FirebaseSync.isFirebaseAvailable(application)
         loadTodayHealth()
         observeExamDeadlines()
-        ensureDefaultProfile()
-    }
-
-    private fun ensureDefaultProfile() {
-        viewModelScope.launch {
-            val profile = repository.getStudentProfileSync()
-            if (profile == null) {
-                // Initialize default profile
-                val defaultProf = StudentProfile(
-                    id = 1,
-                    fullName = "Alex Vance",
-                    email = "4mh23cs133@gmail.com",
-                    passwordHash = "password123",
-                    major = "Computer Science & AI",
-                    gradeLevel = "Junior (3rd Year)",
-                    targetGpa = "3.9",
-                    avatarIndex = 0,
-                    isLoggedIn = false
-                )
-                repository.saveStudentProfile(defaultProf)
-            }
-        }
     }
 
     // --- Student Authentication & Profile Management ---
     fun signUp(fullName: String, email: String, password: String, major: String, gradeLevel: String, targetGpa: String, avatarIndex: Int, dateOfBirth: String = "") {
         if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
-            authError.value = "Please fill in all required fields."
+            authError.value = "Please fill in all required fields (Name, Email, Password)."
             return
         }
         viewModelScope.launch {
             authError.value = null
             val profile = StudentProfile(
                 id = 1,
-                fullName = fullName,
-                email = email,
-                passwordHash = password,
+                fullName = fullName.trim(),
+                email = email.trim(),
+                passwordHash = password.trim(),
                 major = major.ifBlank { "Computer Science & Engineering" },
                 gradeLevel = gradeLevel.ifBlank { "1st Year / Freshman" },
                 targetGpa = targetGpa.ifBlank { "3.8" },
                 avatarIndex = avatarIndex,
                 isLoggedIn = true,
-                dateOfBirth = dateOfBirth
+                joinDateMillis = System.currentTimeMillis(),
+                dateOfBirth = dateOfBirth.ifBlank { "Not Specified" }
             )
             repository.saveStudentProfile(profile)
-            userEmail.value = email
+            userEmail.value = email.trim()
         }
     }
 
     fun login(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            authError.value = "Please enter both student email and password."
+            return
+        }
         viewModelScope.launch {
             val profile = repository.getStudentProfileSync()
             if (profile != null) {
-                if (profile.email.equals(email, ignoreCase = true) && (profile.passwordHash.isEmpty() || profile.passwordHash == password)) {
-                    authError.value = null
-                    repository.saveStudentProfile(profile.copy(isLoggedIn = true))
-                    userEmail.value = email
-                } else if (profile.email.equals(email, ignoreCase = true) && profile.passwordHash != password) {
-                    authError.value = "Incorrect password. Please try again."
+                if (profile.email.trim().equals(email.trim(), ignoreCase = true)) {
+                    if (profile.passwordHash.trim() == password.trim() || profile.passwordHash.isBlank()) {
+                        authError.value = null
+                        repository.saveStudentProfile(profile.copy(isLoggedIn = true))
+                        userEmail.value = profile.email
+                    } else {
+                        authError.value = "Incorrect password for ${profile.email}. Please try again."
+                    }
                 } else {
-                    // Create quick account for the new email
-                    authError.value = null
-                    val newProf = StudentProfile(
-                        id = 1,
-                        fullName = email.substringBefore("@").replaceFirstChar { it.uppercase() },
-                        email = email,
-                        passwordHash = password,
-                        isLoggedIn = true
-                    )
-                    repository.saveStudentProfile(newProf)
-                    userEmail.value = email
+                    authError.value = "No registered account found matching \"${email.trim()}\". Please Sign Up first."
                 }
             } else {
-                authError.value = null
-                val newProf = StudentProfile(
-                    id = 1,
-                    fullName = "Student User",
-                    email = email,
-                    passwordHash = password,
-                    isLoggedIn = true
-                )
-                repository.saveStudentProfile(newProf)
-                userEmail.value = email
+                authError.value = "No account found. Please Sign Up to create your profile."
             }
         }
     }

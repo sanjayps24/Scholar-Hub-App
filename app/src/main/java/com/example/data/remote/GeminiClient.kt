@@ -386,9 +386,13 @@ object GeminiClient {
             
             Guidelines:
             - Maintain continuous conversation context from prior turns.
-            - Provide clear, well-structured answers using markdown formatting, bullet points, and bold key concepts.
+            - Answer ANY student question thoroughly — including general educational, scientific, math, engineering, literature, history, coding, economics, or external real-world topics.
+            - You are NOT restricted to uploaded notes. Provide complete, accurate, real-world explanations, step-by-step solutions, and live data.
+            - If student's question relates to uploaded notes, incorporate notes context while also expanding with comprehensive real-world knowledge.
+            - If Google Search grounding is enabled, include real-time web facts and source citations.
+            - Use clean markdown formatting with bold headings, structured bullet points, and code/math blocks where appropriate.
             - If an image is provided, analyze the handwritten notes, formula, or diagram in detail.
-            - Be highly encouraging, structured, and academically accurate.
+            - Be encouraging, highly articulate, and academically rigorous.
         """.trimIndent()
 
         // Choose target model
@@ -445,20 +449,32 @@ object GeminiClient {
     }
 
     private fun generateLocalAnswerForQuestion(question: String, contentText: String): String {
-        val snippet = if (contentText.isNotBlank()) {
-            if (contentText.length > 300) contentText.substring(0, 300) + "..." else contentText
-        } else {
-            "General academic study guidelines."
-        }
+        val qLower = question.lowercase()
+        val isTechnical = qLower.contains("math") || qLower.contains("code") || qLower.contains("formula") || qLower.contains("science") || qLower.contains("explain") || qLower.contains("what") || qLower.contains("how") || qLower.contains("why")
+        val category = if (isTechnical) "Academic & Technical Explanation" else "General Educational Insight"
+
+        val notesContextSnippet = if (contentText.isNotBlank()) {
+            "**Uploaded Notes Context:**\n> ${if (contentText.length > 250) contentText.substring(0, 250) + "..." else contentText}\n\n"
+        } else ""
+
         return """
-            ### 💡 AI Study Tutor Answer
-            
-            Regarding your question: **"$question"**
-            
-            #### 📌 Key Study Notes Insights:
-            - **Summary from Uploads**: $snippet
-            - **Core Takeaway**: Make sure to break down complex formulas into active recall flashcards and review definitions step-by-step.
-            - **Study Strategy**: Combine these notes with daily Pomodoro focus intervals to maximize exam performance.
+            ### 🎓 Scholar Hub AI Tutor Answer
+
+            **Question:** "$question"
+            **Topic Domain:** $category
+
+            $notesContextSnippet#### 📌 Comprehensive Explanation:
+            1. **Core Concept**:
+               - To understand **"$question"**, break the topic down into fundamental principles, definitions, and real-world applications.
+            2. **Detailed Analysis & Step-by-Step Breakdown**:
+               - Examine the core theoretical or factual foundations governing this subject.
+               - Look at practical examples, case studies, or mathematical/logical formulas relevant to the question.
+               - Connect how this concept links to broader course materials and real-world scenarios.
+            3. **Key Takeaways**:
+               - Practice active recall by self-testing on these key definitions.
+               - Re-read key sections in your study notes to reinforce retention for upcoming exams.
+
+            *Tip: Make sure your Gemini API Key is configured in the AI Studio Secrets panel for live real-time internet search grounding.*
         """.trimIndent()
     }
 

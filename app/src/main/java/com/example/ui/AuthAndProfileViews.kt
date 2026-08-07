@@ -2,7 +2,11 @@ package com.example.ui
 
 import android.app.DatePickerDialog
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,13 +21,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +44,8 @@ import com.example.R
 import com.example.data.StudentProfile
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.cos
+import kotlin.math.sin
 
 enum class AuthPage {
     LANDING, LOGIN, SIGNUP
@@ -74,6 +85,141 @@ fun WelcomeAuthScreen(viewModel: StudyViewModel) {
     }
 }
 
+// --- ANIMATED BACKGROUND COMPONENT ---
+@Composable
+fun AnimatedAcademicBackground() {
+    val infiniteTransition = rememberInfiniteTransition(label = "bg_anim")
+    val animPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f * Math.PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "anim_phase"
+    )
+
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary.takeOrElse { Color(0xFF6366F1) }
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+
+        // Base gradient
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    surfaceColor,
+                    primaryColor.copy(alpha = 0.06f),
+                    surfaceColor
+                )
+            )
+        )
+
+        // Animated glowing ambient Orb 1 (Top-Left moving)
+        val orb1X = w * 0.3f + sin(animPhase) * w * 0.18f
+        val orb1Y = h * 0.25f + cos(animPhase) * h * 0.12f
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    primaryColor.copy(alpha = 0.22f),
+                    primaryColor.copy(alpha = 0.05f),
+                    Color.Transparent
+                ),
+                center = Offset(orb1X, orb1Y),
+                radius = w * 0.65f
+            ),
+            center = Offset(orb1X, orb1Y),
+            radius = w * 0.65f
+        )
+
+        // Animated glowing ambient Orb 2 (Bottom-Right moving)
+        val orb2X = w * 0.7f - cos(animPhase * 0.8f) * w * 0.22f
+        val orb2Y = h * 0.65f + sin(animPhase * 0.8f) * h * 0.15f
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    tertiaryColor.copy(alpha = 0.18f),
+                    tertiaryColor.copy(alpha = 0.04f),
+                    Color.Transparent
+                ),
+                center = Offset(orb2X, orb2Y),
+                radius = w * 0.75f
+            ),
+            center = Offset(orb2X, orb2Y),
+            radius = w * 0.75f
+        )
+    }
+}
+
+// --- ENCLOSED BOX BUTTON WITH HOVER & PRESS RESPONSE ---
+@Composable
+fun EnclosedAuthBoxButton(
+    text: String,
+    icon: ImageVector,
+    isPrimary: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else if (isHovered) 1.06f else 1.0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "boxScale"
+    )
+
+    val containerColor = if (isPrimary) {
+        if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.95f) else MaterialTheme.colorScheme.primary
+    } else {
+        if (isHovered) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    }
+
+    val contentColor = if (isPrimary) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+
+    val border = if (isPrimary) null else BorderStroke(
+        width = if (isHovered) 2.dp else 1.2.dp,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = if (isHovered) 0.95f else 0.5f)
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.scale(scale),
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        border = border,
+        shadowElevation = if (isHovered) 8.dp else 2.dp,
+        tonalElevation = if (isHovered) 4.dp else 1.dp,
+        interactionSource = interactionSource
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = text,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
 // --- PAGE 1: LANDING HOME ENTRY SCREEN ---
 
 @Composable
@@ -83,44 +229,76 @@ fun LandingHomeScreen(
 ) {
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            ),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {
+        // Animated Professional Background
+        AnimatedAcademicBackground()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = 560.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // HERO VIEWPORT: Centered Logo & App Name filling the screen initially
+            // HERO VIEWPORT: Centered Logo & App Name filling the screen height
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(screenHeight - 30.dp),
-                contentAlignment = Alignment.Center
+                    .height(screenHeight)
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
+                // TOP RIGHT ENCLOSED BOX BUTTONS (Scrolls along with page, NOT fixed)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EnclosedAuthBoxButton(
+                        text = "Log In",
+                        icon = Icons.Filled.Login,
+                        isPrimary = false,
+                        onClick = onNavigateToLogin,
+                        modifier = Modifier.testTag("top_login_button")
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    EnclosedAuthBoxButton(
+                        text = "Sign Up",
+                        icon = Icons.Filled.PersonAdd,
+                        isPrimary = true,
+                        onClick = onNavigateToSignUp,
+                        modifier = Modifier.testTag("top_signup_button")
+                    )
+                }
+
+                // CENTERED HERO LOGO & TITLE
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(24.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 50.dp, bottom = 40.dp)
                 ) {
+                    Spacer(modifier = Modifier.weight(1f))
+
                     // Centered App Logo
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shadowElevation = 6.dp,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                        shadowElevation = 8.dp,
                         modifier = Modifier.size(96.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -148,7 +326,8 @@ fun LandingHomeScreen(
 
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                        shadowElevation = 2.dp
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -170,30 +349,43 @@ fun LandingHomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(36.dp))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                    // Subtle Scroll Cue
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    // Interactive Scroll Cue positioned slightly above bottom
+                    val targetScrollPx = with(density) { screenHeight.toPx().toInt() }
+                    Surface(
+                        onClick = {
+                            coroutineScope.launch {
+                                scrollState.animateScrollTo(targetScrollPx)
+                            }
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                        tonalElevation = 3.dp,
+                        shadowElevation = 4.dp,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(bottom = 16.dp)
+                            .testTag("scroll_down_button")
                     ) {
-                        Text(
-                            text = "Scroll down to explore features",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            Icons.Filled.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = "Scroll down to explore features",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                Icons.Filled.KeyboardArrowDown,
+                                contentDescription = "Scroll down to explore features",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -202,7 +394,8 @@ fun LandingHomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
@@ -505,20 +698,6 @@ fun LoginScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(Icons.Filled.Login, contentDescription = null)
                             }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.login(email = "4mh23cs133@gmail.com", password = "password123")
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Icon(Icons.Filled.FlashOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Quick Demo Login", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
                     }
                 }
@@ -1019,7 +1198,16 @@ fun StudentProfileDialog(
                             Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                             ProfileDetailRow(icon = Icons.Outlined.Class, label = "Grade Level", value = student.gradeLevel)
                             Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            ProfileDetailRow(icon = Icons.Outlined.Cake, label = "Date of Birth", value = student.dateOfBirth.ifBlank { "Not Specified" })
+                            Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                             ProfileDetailRow(icon = Icons.Outlined.Grade, label = "Target GPA", value = "${student.targetGpa} / 4.0")
+                            Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            val formattedJoinDate = remember(student.joinDateMillis) {
+                                if (student.joinDateMillis > 0) {
+                                    SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()).format(Date(student.joinDateMillis))
+                                } else "Recent"
+                            }
+                            ProfileDetailRow(icon = Icons.Outlined.CalendarToday, label = "Member Since", value = formattedJoinDate)
                         }
                     }
 

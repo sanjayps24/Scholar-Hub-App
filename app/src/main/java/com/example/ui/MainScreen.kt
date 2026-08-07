@@ -91,36 +91,6 @@ fun MainScreen(viewModel: StudyViewModel) {
                             }
                         },
                         actions = {
-                            // Connection indicator
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(
-                                        if (firebaseAvailable) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                        else MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
-                                    )
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (firebaseAvailable) Color(0xFF10B981)
-                                            else Color(0xFFF59E0B)
-                                        )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (firebaseAvailable) "Firebase Active" else "Offline Cache",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (firebaseAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
                             // Theme Toggle button
                             IconButton(onClick = { viewModel.toggleTheme() }) {
                                 Icon(
