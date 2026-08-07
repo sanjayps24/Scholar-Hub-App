@@ -1,0 +1,6 @@
+{
+  "name": "Scholar Hub",
+  "description": "Scholar Hub - An intelligent academic companion app for summarizing study notes, creating timelines, practicing quizzes, organizing schedules, collaborating, and tracking cognitive health.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
